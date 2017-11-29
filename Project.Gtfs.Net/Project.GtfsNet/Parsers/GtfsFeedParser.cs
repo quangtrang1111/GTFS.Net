@@ -1,4 +1,5 @@
 ﻿using GtfsNet.Visitors;
+using System.IO;
 
 namespace GtfsNet.Parsers
 {
@@ -8,12 +9,24 @@ namespace GtfsNet.Parsers
 		/// Facade for parsing GTFS feed
 		/// </summary>
 		public GtfsFeed Parse(string feedPath)
-		{
-			GtfsFeedParserVisitor parser = new GtfsFeedParserVisitor(feedPath);
-			GtfsFeed feed = new GtfsFeed();
-			feed.Accept(parser);
+        {
+            return GetFeed(new GtfsFeedParserVisitor(feedPath));
+        }
 
-			return parser.Feed;
-		}
-	}
+        /// <summary>
+        /// Facade for parsing GTFS feed
+        /// </summary>
+        public GtfsFeed Parse(Stream stream)
+        {
+            return GetFeed(new GtfsFeedParserVisitor(stream));
+        }
+
+        private GtfsFeed GetFeed(GtfsFeedParserVisitor parser)
+        {
+            GtfsFeed feed = new GtfsFeed();
+            feed.Accept(parser);
+
+            return parser.Feed;
+        }
+    }
 }

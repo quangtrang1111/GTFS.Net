@@ -4,23 +4,32 @@ using System.Linq;
 using GtfsNet.Collections;
 using GtfsNet.Entities;
 using GtfsNet.Parsers;
+using System.IO.Compression;
 
 namespace GtfsNet.Visitors
 {
 	public class GtfsFeedParserVisitor : IFeedVisitor
 	{
 		private readonly string _feedPath;
-		public GtfsFeed Feed { get; }
+        private readonly Stream _dataStream;
+
+        public GtfsFeed Feed { get; }
 
 		public GtfsFeedParserVisitor(string feedPath)
 		{
 			_feedPath = feedPath;
 			Feed = new GtfsFeed();
-		}
+        }
 
-		public void Visit(AgencyCollection agencies)
+        public GtfsFeedParserVisitor(Stream dataStream)
+        {
+            _dataStream = dataStream;
+            Feed = new GtfsFeed();
+        }
+
+        public void Visit(AgencyCollection agencies)
 		{
-			using (var textReader = GetTextReader<Agency>(_feedPath))
+			using (var textReader = GetTextReader<Agency>())
 			{
 				Feed.Agencies = new AgencyCollection(GetEntityParser<Agency>().Parse(textReader).Cast<Agency>());
 			}
@@ -28,7 +37,7 @@ namespace GtfsNet.Visitors
 
 		public void Visit(StopCollection stops)
 		{
-			using (var textReader = GetTextReader<Stop>(_feedPath))
+			using (var textReader = GetTextReader<Stop>())
 			{
 				Feed.Stops = new StopCollection(GetEntityParser<Stop>().Parse(textReader).Cast<Stop>());
 			}
@@ -36,7 +45,7 @@ namespace GtfsNet.Visitors
 
 		public void Visit(RouteCollection routes)
 		{
-			using (var textReader = GetTextReader<Route>(_feedPath))
+			using (var textReader = GetTextReader<Route>())
 			{
 				Feed.Routes = new RouteCollection(GetEntityParser<Route>().Parse(textReader).Cast<Route>());
 			}
@@ -44,7 +53,7 @@ namespace GtfsNet.Visitors
 
 		public void Visit(TripCollection trips)
 		{
-			using (var textReader = GetTextReader<Trip>(_feedPath))
+			using (var textReader = GetTextReader<Trip>())
 			{
 				Feed.Trips = new TripCollection(GetEntityParser<Trip>().Parse(textReader).Cast<Trip>());
 			}
@@ -52,7 +61,7 @@ namespace GtfsNet.Visitors
 
 		public void Visit(StopTimeCollection stopTimes)
 		{
-			using (var textReader = GetTextReader<StopTime>(_feedPath))
+			using (var textReader = GetTextReader<StopTime>())
 			{
 				Feed.StopTimes = new StopTimeCollection(GetEntityParser<StopTime>().Parse(textReader).Cast<StopTime>());
 			}
@@ -60,7 +69,7 @@ namespace GtfsNet.Visitors
 
 		public void Visit(CalendarCollection calendars)
 		{
-			using (var textReader = GetTextReader<Calendar>(_feedPath))
+			using (var textReader = GetTextReader<Calendar>())
 			{
 				Feed.Calendars = new CalendarCollection(GetEntityParser<Calendar>().Parse(textReader).Cast<Calendar>());
 			}
@@ -68,7 +77,7 @@ namespace GtfsNet.Visitors
 
 		public void Visit(CalendarDateCollection calendarDates)
 		{
-			using (var textReader = GetTextReader<CalendarDate>(_feedPath))
+			using (var textReader = GetTextReader<CalendarDate>())
 			{
 				Feed.CalendarDates = new CalendarDateCollection(GetEntityParser<CalendarDate>().Parse(textReader).Cast<CalendarDate>());
 			}
@@ -76,7 +85,7 @@ namespace GtfsNet.Visitors
 
 		public void Visit(FareAttributeCollection fareAttributes)
 		{
-			using (var textReader = GetTextReader<FareAttribute>(_feedPath))
+			using (var textReader = GetTextReader<FareAttribute>())
 			{
 				Feed.FareAttributes = new FareAttributeCollection(GetEntityParser<FareAttribute>().Parse(textReader).Cast<FareAttribute>());
 			}
@@ -84,7 +93,7 @@ namespace GtfsNet.Visitors
 
 		public void Visit(FareRuleCollection fareRules)
 		{
-			using (var textReader = GetTextReader<FareRule>(_feedPath))
+			using (var textReader = GetTextReader<FareRule>())
 			{
 				Feed.FareRules = new FareRuleCollection(GetEntityParser<FareRule>().Parse(textReader).Cast<FareRule>());
 			}
@@ -92,7 +101,7 @@ namespace GtfsNet.Visitors
 
 		public void Visit(ShapeCollection shapes)
 		{
-			using (var textReader = GetTextReader<Shape>(_feedPath))
+			using (var textReader = GetTextReader<Shape>())
 			{
 				Feed.Shapes = new ShapeCollection(GetEntityParser<Shape>().Parse(textReader).Cast<Shape>());
 			}
@@ -100,7 +109,7 @@ namespace GtfsNet.Visitors
 
 		public void Visit(FrequencyCollection frequencies)
 		{
-			using (var textReader = GetTextReader<Frequency>(_feedPath))
+			using (var textReader = GetTextReader<Frequency>())
 			{
 				Feed.Frequencies = new FrequencyCollection(GetEntityParser<Frequency>().Parse(textReader).Cast<Frequency>());
 			}
@@ -108,7 +117,7 @@ namespace GtfsNet.Visitors
 
 		public void Visit(TransferCollection transfers)
 		{
-			using (var textReader = GetTextReader<Transfer>(_feedPath))
+			using (var textReader = GetTextReader<Transfer>())
 			{
 				Feed.Transfers = new TransferCollection(GetEntityParser<Transfer>().Parse(textReader).Cast<Transfer>());
 			}
@@ -116,19 +125,27 @@ namespace GtfsNet.Visitors
 
 		public void Visit(FeedInfoCollection feedInfos)
 		{
-			using (var textReader = GetTextReader<FeedInfo>(_feedPath))
+			using (var textReader = GetTextReader<FeedInfo>())
 			{
 				Feed.FeedInfos = new FeedInfoCollection(GetEntityParser<FeedInfo>().Parse(textReader).Cast<FeedInfo>());
 			}
 		}
 
-		private TextReader GetTextReader<T>(string feedPath)
-		{
-			string fileName = SupportedFileNames.GetFileNameByType<T>();
-			var testFilePath = Path.Combine(feedPath, fileName);
-			if (!File.Exists(testFilePath))
-				return new StringReader(String.Empty);
-			return File.OpenText(testFilePath);
+		private TextReader GetTextReader<T>()
+        {
+            string fileName = SupportedFileNames.GetFileNameByType<T>();
+
+            if (_dataStream == null)
+            {
+                var testFilePath = Path.Combine(_feedPath, fileName);
+                if (!File.Exists(testFilePath))
+                    return new StringReader(String.Empty);
+                return File.OpenText(testFilePath);
+            }
+
+            var zipArchive = new ZipArchive(_dataStream);
+            var stream = zipArchive.Entries.FirstOrDefault(f => f.Name == fileName).Open();
+            return new StreamReader(stream);
 		}
 
 		private IEntityParser<IEntity> GetEntityParser<T>()
