@@ -11,7 +11,7 @@ namespace GtfsNet.Visitors
 	public class GtfsFeedParserVisitor : IFeedVisitor
 	{
 		private readonly string _feedPath;
-        private readonly Stream _dataStream;
+        private readonly ZipArchive _zipData;
 
         public GtfsFeed Feed { get; }
 
@@ -23,7 +23,7 @@ namespace GtfsNet.Visitors
 
         public GtfsFeedParserVisitor(Stream dataStream)
         {
-            _dataStream = dataStream;
+            _zipData = new ZipArchive(dataStream);
             Feed = new GtfsFeed();
         }
 
@@ -135,17 +135,21 @@ namespace GtfsNet.Visitors
         {
             string fileName = SupportedFileNames.GetFileNameByType<T>();
 
-            if (_dataStream == null)
+            if (_zipData == null)
             {
                 var testFilePath = Path.Combine(_feedPath, fileName);
                 if (!File.Exists(testFilePath))
                     return new StringReader(String.Empty);
                 return File.OpenText(testFilePath);
             }
+            
+            var zipFile = _zipData.Entries.FirstOrDefault(f => f.Name == fileName);
+            if (zipFile == null)
+            {
+                return new StringReader(String.Empty);
+            }
 
-            var zipArchive = new ZipArchive(_dataStream);
-            var stream = zipArchive.Entries.FirstOrDefault(f => f.Name == fileName).Open();
-            return new StreamReader(stream);
+            return new StreamReader(zipFile.Open());
 		}
 
 		private IEntityParser<IEntity> GetEntityParser<T>()
